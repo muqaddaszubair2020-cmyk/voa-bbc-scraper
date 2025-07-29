@@ -1,0 +1,105 @@
++*In[2]:*+
+[source, ipython3]
+----
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import time
+
+# Step 1: Extract article links from the main VOA science page
+def get_voa_article_links(main_url):
+    response = requests.get(main_url)
+    if response.status_code != 200:
+        print("Failed to fetch the page.")
+        return []
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    links = []
+
+    for a in soup.select('a[href^="/"]'):
+        href = a.get('href')
+        if href and "/a/" in href:  # VOA article URLs look like /a/title/...
+            full_url = f"https://www.voanews.com{href}"
+            if full_url not in links:
+                links.append(full_url)
+
+    return links
+
+# Step 2: Visit each article and extract title, date, description, content
+def extract_voa_article(url):
+    try:
+        res = requests.get(url, timeout=10)
+        if res.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(res.content, 'html.parser')
+
+        # Title
+        title_tag = soup.find('h1')
+        title = title_tag.text.strip() if title_tag else ''
+
+        # Date
+        date_tag = soup.find('span', class_='date')
+        date = date_tag.text.strip() if date_tag else ''
+
+        # Try multiple content selectors (fallbacks)
+        selectors = [
+            'div.article-body > p',
+            'div#article-content > p',
+            'article p',
+            'div#content p'
+        ]
+
+        paragraphs = []
+        for selector in selectors:
+            paragraphs = soup.select(selector)
+            if paragraphs:
+                break
+
+        content = "\n".join(p.text.strip() for p in paragraphs if p.text.strip())
+
+        # Use first paragraph as description (if available)
+        description = paragraphs[0].text.strip() if paragraphs else "N/A"
+
+        return {
+            "Url": url,
+            "Title": title,
+            "Date": date,
+            "Description": content
+        }
+
+    except Exception as e:
+        print(f"❌ Error scraping {url}: {e}")
+        return None
+
+# Step 3: Run scraper
+voa_url = "https://www.voanews.com/p/7754.html"
+article_links = get_voa_article_links(voa_url)
+print(f"🔗 Found {len(article_links)} article links")
+
+articles = []
+for link in article_links[:20]:  # Limit to 20 articles for speed
+    article = extract_voa_article(link)
+    if article:
+        articles.append(article)
+    time.sleep(1)  # polite delay
+
+# Step 4: Save to Excel
+df = pd.DataFrame(articles)
+df.to_excel("voa_science_articles_details.xlsx", index=False)
+print("📁 Saved to voa_science_articles_details.xlsx")
+----
+
+
++*Out[2]:*+
+----
+🔗 Found 50 article links
+📁 Saved to voa_science_articles_details.xlsx
+----
+
+
++*In[ ]:*+
+[source, ipython3]
+----
+
+----

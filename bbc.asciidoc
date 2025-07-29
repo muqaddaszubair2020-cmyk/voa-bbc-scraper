@@ -1,0 +1,50 @@
++*In[ ]:*+
+[source, ipython3]
+----
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+def scrape_bbc_rss():
+    rss_url = "http://feeds.bbci.co.uk/news/rss.xml"
+    response = requests.get(rss_url)
+    
+    if response.status_code != 200:
+        print("Failed to fetch RSS feed")
+        return []
+
+    soup = BeautifulSoup(response.content, 'xml')  # use XML parser
+    items = soup.find_all('item')
+    articles = []
+
+    for item in items:
+        title = item.title.text
+        description = item.description.text
+        link = item.link.text
+        pub_date = item.pubDate.text
+
+        articles.append({
+            "Url": link,
+            "Title": title,
+            "Description": description,
+            "Date": pub_date
+        })
+
+    return articles
+
+# ✅ Run and save
+bbc_articles = scrape_bbc_rss()
+print(f"✅ Found {len(bbc_articles)} articles via RSS feed")
+
+df = pd.DataFrame(bbc_articles)
+df.to_excel("bbc_news_articles.xlsx", index=False)
+print("📁 Saved to bbc_news_articles.xlsx")
+
+----
+
+
++*In[ ]:*+
+[source, ipython3]
+----
+
+----
